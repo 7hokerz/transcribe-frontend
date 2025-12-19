@@ -157,7 +157,6 @@ async function _transcribeAudioBatch(
     const reqbody = JSON.stringify({
       sessionId,
       userId,
-      audioCount: files.length,
       ...(transcriptionPrompt && { transcriptionPrompt })
     });
 
