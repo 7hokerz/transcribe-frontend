@@ -16,6 +16,18 @@ export const AudioPool = new Pool(apiUrl, {
     headersTimeout: 300_000,
     bodyTimeout: 300_000,
 }).compose(
+    interceptors.retry({
+        maxRetries: 2,
+        minTimeout: 1000,
+        maxTimeout: 5000,
+        timeoutFactor: 2,
+        statusCodes: [502, 503, 504],
+        errorCodes: [
+            'ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'EADDRINUSE'
+        ],
+        retryAfter: true,
+    })
+).compose(
     interceptors.decompress({
         skipStatusCodes: [204, 205, 304]
     })
