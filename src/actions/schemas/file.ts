@@ -13,7 +13,7 @@ export const AUDIO_MIME_TYPE_TO_EXTENSIONS: Record<string, string> = {
 };
 
 export interface FileTypeConfig {
-  mimeType: string | string[];
+  mimeType: string[];
   storagePath: string;
   maxSizeBytes: number;
   featureName: 'AudioUpload';
@@ -39,11 +39,11 @@ export const audioUploadSchema = z.object({
     .min(1, '청크 개수가 너무 적습니다.')
     .max(MAX_TOTAL_CHUNKS, `최대 ${MAX_TOTAL_CHUNKS}개 청크까지 가능합니다.`),
 
-  chunkSizes: z.array(z.number()
-    .positive('파일 크기는 양수여야 합니다.')
-    .max(audioConfig.maxSizeBytes, `파일 크기가 ${audioConfig.maxSizeBytes / (1024 * 1024)}MB를 초과합니다.`), {
-    invalid_type_error: '청크 크기 목록은 배열이어야 합니다.',
-  })
+  chunkSizes: z.array(
+    z.number()
+      .positive('파일 크기는 양수여야 합니다.')
+      .max(audioConfig.maxSizeBytes, `파일 크기가 ${audioConfig.maxSizeBytes / (1024 * 1024)}MB를 초과합니다.`),
+    '청크 크기 목록은 배열이어야 합니다.')
     .min(1, '최소 1개 청크가 필요합니다.')
     .max(MAX_TOTAL_CHUNKS, `최대 ${MAX_TOTAL_CHUNKS}개 청크까지 가능합니다.`),
 })
@@ -68,14 +68,11 @@ export type AudioSignedUrlItem = z.infer<typeof AudioSignedUrlItemSchema>;
 
 export const audioUploadOutputSchema = z.object({
   success: z.boolean(),
-  sessionId: z.string()
-    .trim()
-    .uuid('유효하지 않은 세션 ID입니다.')
+  sessionId: z.uuid()
     .optional(),
 
-  uploads: z.array(AudioSignedUrlItemSchema, {
-    invalid_type_error: '업로드 목록은 배열이어야 합니다.',
-  }).optional(),
+  uploads: z.array(AudioSignedUrlItemSchema, '업로드 목록은 배열이어야 합니다.')
+    .optional(),
 
   message: z.string()
     .trim()
@@ -84,9 +81,7 @@ export const audioUploadOutputSchema = z.object({
 export type audioUploadOutput = z.infer<typeof audioUploadOutputSchema>;
 
 export const audioExtractSchema = z.object({
-  sessionId: z.string()
-    .trim()
-    .uuid('유효하지 않은 세션 ID입니다.'),
+  sessionId: z.uuid(),
 
   transcriptionPrompt: z.string()
     .trim()

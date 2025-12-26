@@ -228,10 +228,10 @@ async function _getTranscriptionResult(
     const status = typeof jobData.status === 'string' ? jobData.status : 'pending';
 
     if (status === 'done') {
-      const cacheDoc = await adminFirestore.collection(CONTENT_CACHE_COLLECTION).doc(`${jobId}:meta`).get();
+      const cacheDoc = await adminFirestore.collection(CONTENT_CACHE_COLLECTION).doc(jobId).get();
       const data = cacheDoc.data() || {};
 
-      const snippet = data.data.snippet;
+      const snippet = data.snippet;
       return { success: true, status, transcript: snippet, cacheKey: jobId };
     }
 
