@@ -16,6 +16,30 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   compress: true,
   
+  // 이미지 최적화
+  images: {
+    formats: ['image/webp'],
+    minimumCacheTTL: 604800,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+        port: '',
+        pathname: '/**',
+      },
+    ],
+  },
+
+  experimental: {
+    // 라이브러리 최적화
+    optimizePackageImports: [
+      'lucide-react',
+      'recharts',
+      'date-fns',
+      'react-day-picker',
+    ],
+  },
+
   async headers() {
     return [
       // SW는 항상 즉시 최신화 (PWA 핵심)
@@ -23,13 +47,13 @@ const nextConfig: NextConfig = {
         source: '/sw.js',
         headers: [
           ...securityHeaders,
-          { 
-            key: 'Cache-Control', 
+          {
+            key: 'Cache-Control',
             value: 'public, max-age=0, must-revalidate',
           },
-          { 
-            key: 'Service-Worker-Allowed', 
-            value: '/' 
+          {
+            key: 'Service-Worker-Allowed',
+            value: '/'
           },
         ],
       },

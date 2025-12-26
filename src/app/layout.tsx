@@ -1,8 +1,9 @@
+import './globals.css';
 import { headers } from 'next/headers';
 import { Inter, Source_Code_Pro } from 'next/font/google';
 import { Providers } from './providers';
-import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
+import { Viewport } from 'next';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -22,6 +23,16 @@ const sourceCodePro = Source_Code_Pro({
   adjustFontFallback: true,
 });
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#000000' },
+  ],
+};
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -33,6 +44,7 @@ export default async function RootLayout({
   return (
     <html
       lang="ko"
+      dir="ltr"
       className={`${inter.variable} ${sourceCodePro.variable}`}
       suppressHydrationWarning
     >
