@@ -1,0 +1,21 @@
+
+services:
+  firebase:
+    image: andreysenov/firebase-tools:latest
+    container_name: firebase-storage-only
+    ports:
+      - "4000:4000" # UI 포트
+      - "9199:9199" # Storage 포트 (기본값)
+    volumes:
+      - ./firebase.json:/home/node/firebase.json
+      - ./storage.rules:/home/node/storage.rules
+      # 업로드된 파일 데이터를 로컬 폴더(./storage-data)에 저장
+      - ./storage-data:/home/node/storage-data
+    entrypoint: ["/bin/sh", "-c"]
+    command: 
+      - |
+        firebase emulators:start \
+        --only storage \
+        --project=demo-project \
+        --import=./storage-data \
+        --export-on-exit
