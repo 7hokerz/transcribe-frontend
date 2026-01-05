@@ -1,0 +1,26 @@
+services:
+  firebase:
+    image: andreysenov/firebase-tools:latest
+    container_name: firebase-emulators
+    ports:
+      - "4000:4000" # UI 포트
+      - "9199:9199" # Storage 포트
+      - "8180:8180" # Firestore
+    volumes:
+      - ./firebase.json:/home/node/firebase.json
+      - ./storage.rules:/home/node/storage.rules
+      # Firestore 관련 파일 마운트 추가
+      - ./firestore.rules:/home/node/firestore.rules
+      - ./firestore.indexes.json:/home/node/firestore.indexes.json
+      # 데이터 폴더 (Storage + Firestore 데이터 모두 여기에 저장됨)
+      - ./firebase-data:/home/node/firebase-data
+    entrypoint: [ "/bin/sh", "-c" ]
+    command:
+      - |
+        mkdir -p /home/node/firebase-data/backup
+
+        exec firebase emulators:start \
+        --only storage,firestore \
+        --project=quiz-whiz-hqbig \
+        --import=/home/node/firebase-data/backup \
+        --export-on-exit=/home/node/firebase-data/backup
