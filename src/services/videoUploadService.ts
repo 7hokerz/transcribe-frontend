@@ -1,67 +1,31 @@
-
-import { SignedPostPolicyV4Output } from '@google-cloud/storage';
+import { generateUploadSignedUrlForSourceVideo } from "@/actions/transcribeActions";
+import { uploadSingleChunk } from "./audioUploadService";
 
 /**
- * 개별 오디오 청크를 Firebase Storage에 업로드 (XHR 기반)
+ * [추가] 원본 비디오 통째로 업로드
  */
-export async function uploadSingleChunk(
-  chunkFile: File,
-  signedUrl: SignedPostPolicyV4Output,
-  chunkName: string,
-  onProgress: (chunkName: string, progress: number) => void,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const formData = new FormData();
+export async function uploadSourceVideo(
+  file: File,
+  userId: string,
+  onProgress: (progress: number) => void
+): Promise<string> {
+  const res = await generateUploadSignedUrlForSourceVideo({
+    fileName: file.name,
+    fileType: file.type,
+    fileSize: file.size
+  }, userId);
 
-    for (const key in signedUrl.fields) {
-      formData.append(key, signedUrl.fields[key]);
-    }
-    formData.append('file', chunkFile);
+  if (!res.success || !res.signedUrl || !res.sessionId) {
+    throw new Error(res.message || "비디오 업로드 준비 실패");
+  }
 
-    const xhr = new XMLHttpRequest();
-    xhr.timeout = 300_000;
+  // chunkName 대신 'source' 등으로 로깅 및 트래킹
+  await uploadSingleChunk(
+    file,
+    res.signedUrl,
+    "source_file", 
+    (_, progress) => onProgress(progress)
+  );
 
-    const handleProgress = (event: ProgressEvent) => {
-      if (event.lengthComputable) {
-        const progress = (event.loaded / event.total) * 100;
-        onProgress(chunkName, progress);
-      }
-    };
-
-    const handleLoad = () => {
-      cleanup();
-      if (xhr.status >= 200 && xhr.status < 300) {
-        onProgress(chunkName, 100);
-        resolve();
-      } else {
-        reject(new Error(`업로드 실패: ${xhr.statusText}`));
-      }
-    };
-
-    const handleError = () => {
-      cleanup();
-      reject(new Error('네트워크 오류가 발생했습니다.'));
-    };
-
-    const handleAbort = () => {
-      cleanup();
-      reject(new Error('업로드가 취소되었습니다.'));
-    };
-
-    // 이벤트 리스너 정리 함수 (메모리 누수 방지)
-    const cleanup = () => {
-      xhr.upload.removeEventListener('progress', handleProgress);
-      xhr.removeEventListener('load', handleLoad);
-      xhr.removeEventListener('error', handleError);
-      xhr.removeEventListener('abort', handleAbort);
-    };
-
-    xhr.upload.addEventListener('progress', handleProgress);
-    xhr.addEventListener('load', handleLoad);
-    xhr.addEventListener('error', handleError);
-    xhr.addEventListener('abort', handleAbort);
-
-    xhr.open('POST', signedUrl.url);
-    xhr.send(formData);
-  });
+  return res.sessionId;
 }

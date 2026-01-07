@@ -12,6 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { transcribeAudioBatch } from "@/actions/transcribeActions";
 import { extractAndUploadAudio } from "@/services/audioExtractionService";
 import { MAX_VIDEO_SIZE } from "@/lib/schemas/media";
+import { isIOS } from "@/lib/browserUtils";
+import { uploadSourceVideo } from "@/services/videoUploadService";
 
 export interface UseVideoUploadOptions {
   transcriptionPrompt?: string;
@@ -60,6 +62,21 @@ export function useVideoUpload(options: UseVideoUploadOptions = {}, userId: stri
   }, [toast]);
 
   const extractAndUpload = useCallback(async (file: File): Promise<string> => {
+    if (isIOS()) {
+      console.log("🍎 iOS Device detected. Skipping client-side FFmpeg.");
+
+      toast({
+        title: "iOS 환경 감지",
+        description: "안정적인 처리를 위해 서버로 원본 영상을 전송합니다.",
+      });
+
+      return await uploadSourceVideo(
+        file, 
+        userId, 
+        (progress) => actions.setUploadProgress(progress)
+      );
+    }
+
     await init();
 
     const sessionId = await extractAndUploadAudio(file, {

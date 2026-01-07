@@ -108,3 +108,14 @@ function sanitizeFileName(fileName: string): string {
     .replace(/^\.+|\.+$/g, '') // 시작/끝 점 제거
     .slice(0, 255); // 파일명 길이 제한
 }
+
+export const videoSourceUploadSchema = z.object({
+  fileName: z.string()
+    .trim()
+    .min(1, '파일명이 필요합니다.'),
+
+  fileType: z.string(),
+
+  fileSize: z.number(),
+});
+export type videoSourceUpload = z.infer<typeof videoSourceUploadSchema>;

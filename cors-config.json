@@ -1,0 +1,20 @@
+[
+  {
+    "origin": [
+      "http://localhost:9003",
+      "https://quizgen.kr",
+      "https://quizgen-jh.vercel.app"
+    ],
+    "method": [
+      "POST"
+    ],
+    "responseHeader": [
+      "Content-Type",
+      "x-goog-meta-chunk-index",
+      "x-goog-meta-total-chunks",
+      "x-goog-meta-batch-session-id",
+      "x-goog-meta-is-source"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]

@@ -9,7 +9,7 @@ import pLimit from "p-limit";
 import { generateUploadSignedUrlForAudio } from "@/actions/transcribeActions";
 import type { AudioSignedUrlItem } from "@/actions/schemas/file";
 import { detectNetworkConfig } from "@/lib/networkQuality";
-import { uploadSingleChunk } from "./videoUploadService";
+import { uploadSingleChunk } from "./audioUploadService";
 import { OnChunkCallback, OnMetadataCallback, SendNext } from "@/hooks/useFFmpegWorker";
 import { AudioChunk, AudioMetadata } from "@/lib/schemas/media";
 

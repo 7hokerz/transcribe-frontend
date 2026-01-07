@@ -2,7 +2,7 @@
 import crypto from 'crypto';
 import pLimit from 'p-limit';
 import { logger } from '@/lib/logger';
-import { adminFirestore, adminStorage, bucket } from '@/config/firebase-admin';
+import { adminFirestore, adminStorage, bucket, GCSFile } from '@/config/firebase-admin';
 import { MAX_AUDIO_SIZE } from '@/lib/schemas/media';
 import { headers } from 'next/headers';
 import { AudioPool } from '@/lib/httpsAgent';
@@ -18,7 +18,9 @@ import {
   audioUploadOutput,
   audioUpload,
   MAX_TOTAL_CHUNKS,
-  AUDIO_MIME_TYPE_TO_EXTENSIONS
+  AUDIO_MIME_TYPE_TO_EXTENSIONS,
+  videoSourceUploadSchema,
+  videoSourceUpload
 } from '@/actions/schemas/file';
 
 const CONTENT_CACHE_COLLECTION = 'content-cache';
@@ -66,7 +68,7 @@ function buildChunkUploadPolicy(input: ChunkUploadPolicyInput) {
   return { conditions, fields };
 }
 
-async function _generateUploadSignedUrlForAudio(
+export async function generateUploadSignedUrlForAudio(
   payload: audioUpload,
   userId: string,
 ): Promise<audioUploadOutput> {
@@ -116,7 +118,7 @@ async function _generateUploadSignedUrlForAudio(
   }
 }
 
-async function _transcribeAudioBatch(
+export async function transcribeAudioBatch(
   payload: audioExtract,
   userId: string,
 ): Promise<{
@@ -142,7 +144,14 @@ async function _transcribeAudioBatch(
       };
     }
 
-    await validateFiles(files);
+    const firstFileMeta = files[0].metadata?.metadata; 
+    const isSourceMode = firstFileMeta?.['is-source'] === 'true';
+
+    if (isSourceMode) {
+      await validateSourceVideo(files);
+    } else {
+      await validateFiles(files);
+    }
 
     const headersList = await headers();
     const clientIp = headersList.get('x-forwarded-for')?.split(',')[0] || 'IP_NOT_FOUND';
@@ -202,7 +211,7 @@ async function _transcribeAudioBatch(
   }
 }
 
-async function _getTranscriptionResult(
+export async function getTranscriptionResult(
   payload: audioJobStatus,
   userId: string,
 ): Promise<{
@@ -250,31 +259,116 @@ async function _getTranscriptionResult(
   }
 }
 
-async function validateFiles(audios: any[]) {
+async function validateFiles(audios: GCSFile[]) {
   const metadataPromises = audios.map(audio => audio.metadata);
   const allMetadata = await Promise.all(metadataPromises);
 
-  for (const audioMetadata of allMetadata) {
-    const { size, contentType, metadata: customMetadata } = audioMetadata;
+  const allowedTypes = new Set(audioConfig.mimeType);
 
-    if (Number(size) > MAX_AUDIO_SIZE || !audioConfig.mimeType.includes(contentType)) {
-      throw new Error(`청크 ${customMetadata?.index}: 잘못된 파일 속성`);
+  for (const meta of allMetadata) {
+    const sizeNum = Number(meta?.size);
+    const contentType = meta?.contentType;
+    const custom = meta?.metadata as Record<string, string> | undefined;
+
+    const label = meta.name ?? "(unknown-file)";
+
+    if (!Number.isFinite(sizeNum) || sizeNum <= 0) {
+      throw new Error(`파일 ${label}: size 메타데이터가 올바르지 않습니다.`);
     }
 
-    if (!customMetadata || !customMetadata['chunk-index'] || !customMetadata['total-chunks']) {
-      throw new Error(`청크 ${customMetadata?.index}: 필수 메타데이터 누락`);
+    if (sizeNum > MAX_AUDIO_SIZE) {
+      throw new Error(`파일 ${label}: 파일 크기가 제한을 초과했습니다.`);
     }
 
-    const index = parseInt(customMetadata['chunk-index']);
-    const totalChunks = parseInt(customMetadata['total-chunks']);
-    if (index < 0 || index >= totalChunks || totalChunks > MAX_TOTAL_CHUNKS) {
-      throw new Error(`청크 ${index}: 잘못된 인덱스 또는 전체 청크 수`);
+    if (typeof contentType !== "string" || !allowedTypes.has(contentType)) {
+      throw new Error(`파일 ${label}: 허용되지 않는 Content-Type 입니다 (${contentType ?? "missing"}).`);
+    }
+
+    const idxStr = custom?.["chunk-index"];
+    const totalStr = custom?.["total-chunks"];
+    if (!idxStr || !totalStr) {
+      throw new Error(`파일 ${label}: 필수 메타데이터(chunk-index/total-chunks)가 누락되었습니다.`);
+    }
+
+    const idx = Number.parseInt(idxStr, 10);
+    const total = Number.parseInt(totalStr, 10);
+
+    if (!Number.isInteger(idx) || !Number.isInteger(total)) {
+      throw new Error(`파일 ${label}: chunk-index/total-chunks 형식이 올바르지 않습니다.`);
+    }
+    if (total <= 0 || total > MAX_TOTAL_CHUNKS) {
+      throw new Error(`파일 ${label}: total-chunks 값이 비정상입니다 (${total}).`);
+    }
+    if (idx < 0 || idx >= total) {
+      throw new Error(`파일 ${label}: chunk-index 범위를 벗어났습니다 (${idx}/${total}).`);
     }
   }
 }
 
-export const generateUploadSignedUrlForAudio = _generateUploadSignedUrlForAudio;
+// [추가] 비디오 파일 검증 로직
+async function validateSourceVideo(files: GCSFile[]) {
+  if (files.length !== 1) {
+    throw new Error("비디오 원본 처리는 단일 파일만 가능합니다.");
+  }
 
-export const getTranscriptionResult = _getTranscriptionResult;
+  const file = files[0];
+  const sizeNum = Number(file.metadata.size);
+  const contentType = file.metadata.contentType;
+  
+  // 메타데이터 플래그 확인 (이전 단계에서 넣은 'is-source' or 'is-fallback')
+  const isSource = file.metadata.metadata?.['is-source'] === 'true';
 
-export const transcribeAudioBatch = _transcribeAudioBatch;
+  if (!isSource) {
+     throw new Error("청크 메타데이터가 없는 불명확한 파일입니다.");
+  }
+
+  // 비디오 크기 제한 체크 (MAX_VIDEO_SIZE는 schemas/media 등에서 가져오거나 상수로 정의)
+  // 예: const MAX_VIDEO_SIZE = 500 * 1024 * 1024; // 500MB
+  // if (sizeNum > MAX_VIDEO_SIZE) { ... }
+
+  // Content-Type 체크 (video/*)
+  if (!contentType?.startsWith('video/')) {
+    throw new Error(`유효하지 않은 파일 형식입니다: ${contentType}`);
+  }
+}
+
+export async function generateUploadSignedUrlForSourceVideo(
+  payload: videoSourceUpload,
+  userId: string
+) {
+  const { fileName, fileType, fileSize } = videoSourceUploadSchema.parse(payload);
+
+  try {
+    const sessionId = crypto.randomUUID();
+    const extension = fileName.split('.').pop() || 'mp4';
+    
+    // 경로 예: uploads/{userId}/{sessionId}/source.{ext}
+    const storagePath = `${audioConfig.storagePath}/${userId}/${sessionId}/source.${extension}`;
+    const expirationTime = Date.now() + SIGNED_URL_EXPIRES_IN_MS;
+
+    const conditions = [
+      ['content-length-range', 0, fileSize],
+      ['eq', '$key', storagePath],
+      ['eq', '$Content-Type', fileType],
+      ['eq', '$x-goog-meta-batch-session-id', sessionId],
+      ['eq', '$x-goog-meta-is-source', 'true']
+    ];
+
+    const fields: Record<string, string> = {
+      "Content-Type": fileType,
+      "x-goog-meta-batch-session-id": sessionId,
+      "x-goog-meta-is-source": "true",
+    };
+
+    const [signedUrl] = await bucket.file(storagePath).generateSignedPostPolicyV4({
+      expires: expirationTime,
+      conditions,
+      fields,
+    });
+
+    return { success: true, sessionId, signedUrl };
+  } catch (error) {
+    await logger('Error generating video signed URL: ', error);
+    return { success: false, message: "비디오 업로드 URL 생성 실패" };
+  }
+}
