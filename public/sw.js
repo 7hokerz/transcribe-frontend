@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 const CACHE_PREFIX = 'ffmpeg-cache-';
-const CACHE_NAME = `${CACHE_PREFIX}v3`;
+const CACHE_NAME = `${CACHE_PREFIX}v4`;
 
 const FFMPEG_ASSETS = new Set([
     '/ffmpeg/ffmpeg-core.js',
