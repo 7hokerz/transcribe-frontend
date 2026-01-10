@@ -1,21 +1,29 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "noEmit": true,
-    "esModuleInterop": true,
+    /* 환경 설정 */
     "module": "esnext",
     "moduleResolution": "bundler",
+    "target": "ES2022",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "esModuleInterop": true,
+
+    /* 타입 안전성 강화 */
+    "strict": true,
+    
+    /* 모듈 및 빌드 설정 */
+    "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowJs": true,
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
-    "isolatedModules": true,
     "jsx": "preserve",
+
+    /* 빌드 속도 */
     "incremental": true,
     "tsBuildInfoFile": ".next/cache/tsconfig.tsbuildinfo",
+
     "plugins": [
       {
         "name": "next"
