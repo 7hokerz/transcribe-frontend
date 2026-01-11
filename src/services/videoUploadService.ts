@@ -1,9 +1,7 @@
 import { generateUploadSignedUrlForSourceVideo } from "@/actions/transcribeActions";
 import { uploadSingleChunk } from "./audioUploadService";
 
-/**
- * [추가] 원본 비디오 통째로 업로드
- */
+/** 원본 비디오 통째로 업로드 */
 export async function uploadSourceVideo(
   file: File,
   userId: string,

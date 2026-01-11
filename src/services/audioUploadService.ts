@@ -1,9 +1,14 @@
 
 import { SignedPostPolicyV4Output } from '@google-cloud/storage';
 
-/**
- * 개별 오디오 청크를 Firebase Storage에 업로드 (XHR 기반)
- */
+function normalizeProgressInFlight(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+
+  const floored = Math.floor(value);
+  return Math.max(0, Math.min(99, floored));
+}
+
+/** 개별 오디오 청크를 Firebase Storage에 업로드 (XHR 기반) */
 export async function uploadSingleChunk(
   chunkFile: File,
   signedUrl: SignedPostPolicyV4Output,
@@ -24,7 +29,7 @@ export async function uploadSingleChunk(
     const handleProgress = (event: ProgressEvent) => {
       if (event.lengthComputable) {
         const progress = (event.loaded / event.total) * 100;
-        onProgress(chunkName, progress);
+        onProgress(chunkName, normalizeProgressInFlight(progress));
       }
     };
 

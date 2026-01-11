@@ -103,7 +103,9 @@ export async function extractAndUploadAudio(
     if (!totalChunks) return;
 
     const totalProgress = Array.from(chunkProgressMap.values()).reduce((a, b) => a + b, 0);
-    onProgressUpdate(Math.round(totalProgress / totalChunks));
+
+    const avg = Math.floor(totalProgress / totalChunks);
+    onProgressUpdate(Math.max(0, Math.min(99, avg)));
   };
 
   const hasNextChunk = (idx: number) => idx < totalChunks - 1;
